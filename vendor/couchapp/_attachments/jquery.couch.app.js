@@ -11,7 +11,7 @@
 // the License.
 
 // Usage: The passed in function is called when the page is ready.
-// CouchApp passes in the app object, which takes care of linking to 
+// CouchApp passes in the app object, which takes care of linking to
 // the proper database, and provides access to the CouchApp helpers.
 // $.couch.app(function(app) {
 //    app.db.view(...)
@@ -19,6 +19,25 @@
 // });
 
 (function($) {
+
+    function encodeOptions(options) {
+        var buf = [];
+        if (typeof(options) == "object" && options !== null) {
+            for (var name in options) {
+                if (name === 'success') { continue; };
+                if (!options.hasOwnProperty(name)) { continue; };
+                var value = options[name];
+                if (name == "key" || name == "keys" || name == "startkey" || name == "endkey") {
+                    value = toJSON(value);
+                }
+                buf.push(encodeURIComponent(name) + "=" + encodeURIComponent(value));
+            }
+        }
+        if (!buf.length) {
+            return "";
+        }
+        return "?" + buf.join("&");
+    };
 
   function Design(db, name, code) {
     this.doc_id = "_design/"+name;
@@ -37,6 +56,32 @@
     this.list = function(list, view, opts) {
       db.list(name+'/'+list, view, opts);
     };
+      this.spatial = function(view, opts) {
+          if (view.indexOf('/') === -1) {
+              view = [name, view];
+          } else {
+              view = view.split('/', 2);
+          }
+          var options = opts || {};
+          var type = "GET";
+          $.ajax({
+              type: type,
+              url: db.uri + "_design/" + view[0] +
+                  "/_spatial/" + view[1] + encodeOptions(options),
+              complete: function(req) {
+                  var resp = $.parseJSON(req.responseText);
+                  if (req.status == 200) {
+                      if (options.success) options.success(resp);
+                  } else if (options.error) {
+                      options.error(req.status, resp.error, resp.reason);
+                  } else {
+                      console.log("Something broke somewhere.");
+                  }
+              }},
+              options, "An error occurred accessing the view"
+          );
+      };
+
   }
 
   function docForm() { alert("docForm has been moved to vendor/couchapp/lib/docForm.js, use app.require to load") };
@@ -96,14 +141,14 @@
       }
       var exports = {};
       var resolved = resolveModule(name, name.split('/'), parents, ddoc);
-      var source = resolved[0]; 
+      var source = resolved[0];
       parents = resolved[1];
       var s = "var func = function (exports, require) { " + source + " };";
       try {
         eval(s);
         func.apply(ddoc, [exports, function(name) {return require(name, parents)}]);
-      } catch(e) { 
-        throw ["error","compilation_error","Module require('"+name+"') raised error "+e.toSource()]; 
+      } catch(e) {
+        throw ["error","compilation_error","Module require('"+name+"') raised error "+e.toSource()];
       }
       setCachedModule(name, parents, exports);
       return exports;
@@ -147,10 +192,11 @@
       design : design,
       view : design.view,
       list : design.list,
+      spatial : design.spatial,
       docForm : docForm, // deprecated
       req : mockReq()
     }, $.couch.app.app);
-    function handleDDoc(ddoc) {        
+    function handleDDoc(ddoc) {
       if (ddoc) {
         appExports.ddoc = ddoc;
         appExports.require = makeRequire(ddoc);
@@ -165,7 +211,7 @@
     if ($.couch.app.ddocs[design.doc_id]) {
       $(function() {handleDDoc($.couch.app.ddocs[design.doc_id])});
     } else {
-      // only open 1 connection for this ddoc 
+      // only open 1 connection for this ddoc
       if ($.couch.app.ddoc_handlers[design.doc_id]) {
         // we are already fetching, just wait
         $.couch.app.ddoc_handlers[design.doc_id].push(handleDDoc);
