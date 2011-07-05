@@ -78,8 +78,29 @@
                       console.log("Something broke somewhere.");
                   }
               }},
-              options, "An error occurred accessing the view"
-          );
+                 options, "An error occurred accessing the view"
+                );
+      };
+      this.spatial_list = function(list, view, opts) {
+          var options = opts || {};
+          var type = "GET";
+          // http://localhost:5984/places/_design/main/_spatial/_list/wkt/points?bbox=-180,-90,180,90
+          $.ajax({
+              type: type,
+              url: db.uri + "_design/" + name +
+                  "/_spatial/_list/" + list + "/" + view + encodeOptions(options),
+              complete: function(req) {
+                  var resp = $.parseJSON(req.responseText);
+                  if (req.status == 200) {
+                      if (options.success) options.success(resp);
+                  } else if (options.error) {
+                      options.error(req.status, resp.error, resp.reason);
+                  } else {
+                      console.log("Something broke somewhere.");
+                  }
+              }},
+                 options, "An error occurred accessing the view"
+                );
       };
 
   }
@@ -193,6 +214,7 @@
       view : design.view,
       list : design.list,
       spatial : design.spatial,
+      spatial_list : design.spatial_list,
       docForm : docForm, // deprecated
       req : mockReq()
     }, $.couch.app.app);
