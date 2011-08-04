@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import sys
 import json
 
@@ -14,6 +15,10 @@ idmap = {
     'Profile': 'screen_name'
 }
 
+FLOAT_KEY_RE = re.compile(r'temp_c|wind_speed|precipitation|latitude|longitude')
+
+BOOL_KEY_RE = re.compile('^is_')
+
 def getId(doc):
     getter = idmap.get(doc['type'], 'id')
     if callable(getter):
@@ -21,6 +26,19 @@ def getId(doc):
     else:
         i = doc[getter]
     return doc['type'] + '_' + i
+
+def cleanup(h):
+    for k in h:
+        if isinstance(h[k], dict):
+            cleanup(h[k])
+        elif isinstance(h[k], list):
+            for e in h[k]:
+                if isinstance(e, dict):
+                    cleanup(e)
+        elif FLOAT_KEY_RE.search(k):
+            h[k] = float(h[k])
+        elif BOOL_KEY_RE.search(k):
+            h[k] = h[k] == 'true'
 
 def main(argv):
     if len(argv) < 5:
@@ -47,6 +65,7 @@ def main(argv):
                 doc = {'type': otype}
                 doc.update(d)
                 doc['_id'] = getId(doc)
+                cleanup(doc)
                 docs.append(doc)
 
     DB.update(docs)
