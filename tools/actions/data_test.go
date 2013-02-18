@@ -65,10 +65,10 @@ func TestFeatureParsing(t *testing.T) {
 		t.Errorf("Incorrect timestamp: %v", ts)
 	}
 
-	if math.Abs(f.Geometry.Latitude()-37.3684139) > epsilon {
+	if math.Abs(float64(f.Geometry.Latitude())-37.3684139) > epsilon {
 		t.Errorf("Invalid latitude: %v", f.Geometry.Latitude())
 	}
-	if math.Abs(f.Geometry.Longitude() - -121.9859701) > epsilon {
+	if math.Abs(float64(f.Geometry.Longitude()) - -121.9859701) > epsilon {
 		t.Errorf("Invalid longitude: %v", f.Geometry.Longitude())
 	}
 }
